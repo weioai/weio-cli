@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "weio-ai"
+version = "1.0.3"
+description = "Weio — an agentic coding assistant that routes inference through your Weio account."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Weio, Inc." }]
+keywords = ["weio", "ai", "cli", "coding-assistant", "llm"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Code Generators",
+]
+dependencies = ["httpx>=0.24", "prompt_toolkit>=3.0"]
+
+[project.urls]
+Homepage = "https://weio.ai"
+Documentation = "https://weio.ai/docs"
+
+[project.scripts]
+weio = "weio_cli.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
