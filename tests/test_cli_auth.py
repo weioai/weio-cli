@@ -1,5 +1,5 @@
 """Tests for CLI auth v2: `weio logout`, `weio whoami`, and the tier-split
-`weio login` (browser default vs --api-key / WEIO_API_KEY dashboard path).
+`weio login` (device default, --loopback, --api-key / WEIO_API_KEY dashboard path).
 
 All HTTP is mocked (httpx.get); the browser loopback flow is mocked at the
 `weio_cli.browser_login.browser_login` function so no real socket/browser is
@@ -204,7 +204,7 @@ def test_login_browser_flow_tags_source_browser(monkeypatch, tmp_path, capsys):
     _mock_http(monkeypatch, {"email": "dev@example.test", "tier": "starter", "org_name": None})
     monkeypatch.setattr("weio_cli.browser_login.browser_login", lambda base, timeout=180.0: "weio_sk_browser_minted")
 
-    rc = cli.main(["login"])
+    rc = cli.main(["login","--loopback"])
     capsys.readouterr()
 
     assert rc == 0
@@ -254,7 +254,7 @@ def test_login_team_tier_via_browser_notes_dashboard_key(monkeypatch, tmp_path, 
     _mock_http(monkeypatch, {"email": "lead@acme.test", "tier": "team", "org_name": "Acme Inc"})
     monkeypatch.setattr("weio_cli.browser_login.browser_login", lambda base, timeout=180.0: "weio_sk_browser_minted")
 
-    rc = cli.main(["login"])
+    rc = cli.main(["login","--loopback"])
     out = capsys.readouterr().out
 
     assert rc == 0
@@ -267,7 +267,7 @@ def test_login_pro_tier_via_browser_has_no_extra_note(monkeypatch, tmp_path, cap
     _mock_http(monkeypatch, {"email": "solo@example.test", "tier": "pro", "org_name": None})
     monkeypatch.setattr("weio_cli.browser_login.browser_login", lambda base, timeout=180.0: "weio_sk_browser_minted")
 
-    rc = cli.main(["login"])
+    rc = cli.main(["login","--loopback"])
     out = capsys.readouterr().out
 
     assert rc == 0
@@ -284,3 +284,35 @@ def test_login_via_api_key_flag_skips_teams_note_even_on_team_tier(monkeypatch, 
 
     assert rc == 0
     assert "recommended" not in out.lower()
+
+
+def test_login_device_flow_tags_source_device_and_whoami_reports_cli_agent_key(monkeypatch, tmp_path, capsys):
+    _common_env(monkeypatch, tmp_path)
+    _mock_http(monkeypatch, {"email": "dev@example.test", "tier": "lite", "org_name": None})
+    monkeypatch.setattr("weio_cli.device_login.device_login", lambda base, timeout=600.0, open_browser=True: "weio_sk_device_minted")
+
+    rc = cli.main(["login"])
+    capsys.readouterr()
+
+    assert rc == 0
+    assert (tmp_path / "config.json").stat().st_mode & 0o777 == 0o600
+    data = json.loads((tmp_path / "config.json").read_text())
+    assert data["api_key"] == "weio_sk_device_minted"
+    assert data["key_source"] == "device"
+
+    rc_who = cli.main(["whoami"])
+    out_who = capsys.readouterr().out
+    assert rc_who == 0
+    assert "CLI and coding agent key (device-code sign-in)" in out_who
+
+
+def test_login_device_flow_failure_preserves_existing_credential(monkeypatch, tmp_path, capsys):
+    _common_env(monkeypatch, tmp_path)
+    config.save(key="weio_sk_existing", source="api_key", account_email="keep@example.test", account_tier="lite")
+    before = (tmp_path / "config.json").read_bytes()
+    monkeypatch.setattr("weio_cli.device_login.device_login", lambda base, timeout=600.0, open_browser=True: None)
+
+    rc = cli.main(["login", "--device"])
+    capsys.readouterr()
+    assert rc == 1
+    assert (tmp_path / "config.json").read_bytes() == before

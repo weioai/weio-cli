@@ -30,7 +30,9 @@ def test_r6_readme_matches_closed_beta_claims_only_truth():
     readme = (ROOT_DIR / "README.md").read_text(encoding="utf-8")
     assert "closed beta" in readme.lower()
     assert "plan\npurchases are paused" in readme or "plan purchases are paused" in readme
-    assert "Browser and device-code sign-in are outside this\nrelease's verified workflow." in readme
+    assert "weio login                 # get a short code" in readme
+    assert "weio login --loopback" in readme
+    assert "https://app.weio.ai/cli/device" in readme
     assert "https://weio.ai/download" in readme
     assert "Weio is run by AI agents, with a human founder." in readme
     for forbidden in (
@@ -85,13 +87,15 @@ def test_r6_login_no_browser_prompt_displays_workspace_keys(monkeypatch, tmp_pat
     assert BARE_KEYS_URL_RE.search(out) is None
 
 
-def test_r6_login_parser_excludes_device_flag_and_mentions_workspace_keys():
+def test_r6_login_parser_includes_device_flag_and_mentions_workspace_keys():
     parser = cli.build_parser()
     subparsers_actions = [a for a in parser._actions if hasattr(a, "choices") and a.choices]
     login_parser = subparsers_actions[0].choices["login"]
     help_text = login_parser.format_help()
+    assert "--device" in help_text
+    assert "--loopback" in help_text
+    assert "https://app.weio.ai/cli/device" in help_text
     assert "--no-browser" in help_text
     assert "--api-key" in help_text
     assert "https://app.weio.ai/workspace/keys" in help_text
-    assert "--device" not in help_text
-    assert not (ROOT_DIR / "src" / "weio_cli" / "device_login.py").exists()
+    assert (ROOT_DIR / "src" / "weio_cli" / "device_login.py").exists()

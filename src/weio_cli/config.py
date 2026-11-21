@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import os
+from tempfile import NamedTemporaryFile
 from pathlib import Path
 from typing import Optional
 
@@ -46,13 +47,21 @@ def _read_file() -> dict:
 
 
 def _write_file(data: dict) -> Path:
-    _dir().mkdir(parents=True, exist_ok=True)
     path = _file()
-    path.write_text(json.dumps(data, indent=2))
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    temporary = None
     try:
-        path.chmod(0o600)
-    except Exception:
-        pass
+        with NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent, delete=False) as stream:
+            temporary = Path(stream.name)
+            if os.name == "posix":
+                os.fchmod(stream.fileno(), 0o600)
+            json.dump(data, stream, indent=2)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
     return path
 
 

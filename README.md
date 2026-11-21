@@ -17,24 +17,30 @@ Requires Python 3.9+.
 
 Weio is in closed beta. New accounts need an approved invitation, and plan
 purchases are paused. Sign in to an eligible account and create a revocable API
-key in [Workspace → Keys](https://app.weio.ai/workspace/keys).
+key in [Settings → API keys](https://app.weio.ai/workspace/keys).
 
 ```bash
-weio login --no-browser
+weio login                 # get a short code for https://app.weio.ai/cli/device
+weio login --loopback      # or sign in in a browser on this same computer
+weio login --no-browser    # or paste a CLI and coding agent key from Settings → API keys
 weio whoami
 ```
 
-Paste the key when prompted. The CLI uses `https://api.weio.ai/v1` by default.
+Open the displayed link, enter the short code, and approve the request in any
+signed-in browser. The code expires after 10 minutes and works once. Device
+sign-in uses the default Weio gateway and creates a revocable key with the
+chat, documents, and hosted-agent scopes. Hosted-agent routes remain closed
+during beta. For a custom gateway, paste that gateway's key with
+`weio login --no-browser`.
 For CI, supply `WEIO_API_KEY` from your secret store. The key is never needed
-in a command argument. Browser and device-code sign-in are outside this
-release's verified workflow.
+in a command argument.
 
 ```bash
 weio usage             # view usage reported for your account
 weio logout            # clears the credential saved by login
 ```
 
-Revoke an issued key from Workspace → Keys if you no longer need it. Logout
+Revoke an issued key from Settings → API keys if you no longer need it. Logout
 does not unset an environment variable set by your shell.
 
 ## Use
@@ -144,7 +150,7 @@ Using a different OpenAI-compatible endpoint (e.g. a gateway on your LAN)? Point
 Output is billed against your Weio account usage.
 
 
-## Release 1.0.3
+## Release 1.0.4
 
 The verified install and API-key workflow covers Linux with Python. The wheel
 and source distribution are Python packages. See [Downloads](https://weio.ai/download)

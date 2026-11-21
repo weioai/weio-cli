@@ -41,6 +41,7 @@ def _c(text: str, role: str) -> str:
 # Labels for `weio whoami`'s "key type" line, keyed by config.resolve_key_source().
 _KEY_SOURCE_LABELS = {
     "browser": "session key (browser sign-in)",
+    "device": "CLI and coding agent key (device-code sign-in)",
     "api_key": "dashboard API key",
     "flag": "dashboard API key (--key flag)",
     "env": "dashboard API key (WEIO_API_KEY)",
@@ -73,6 +74,11 @@ def cmd_login(args) -> int:
     cli_base = getattr(args, "base", None)
     base = config.resolve_base(cli_base)
     no_browser = getattr(args, "no_browser", False)
+    use_device = getattr(args, "device", False)
+    use_loopback = getattr(args, "loopback", False)
+    if use_loopback and no_browser:
+        print("--loopback and --no-browser cannot be used together.", file=sys.stderr)
+        return 2
 
     # Snapshot the previous identity (no network) before we clobber it, so a
     # re-auth to a different account can be called out below.
@@ -80,17 +86,25 @@ def cmd_login(args) -> int:
 
     key = cli_key
     source = "api_key" if key else None
-    # Default: open the browser, sign in (incl. Google), auto-mint a key.
-    if not key and not no_browser:
+    if not key and (use_device or not (no_browser or use_loopback)):
+        from .device_login import device_login
+        key = device_login(base, open_browser=use_device and not no_browser)
+        if key:
+            source = "device"
+        else:
+            print(_c("Device-code sign-in did not complete. Existing saved credentials were not changed.", "error"), file=sys.stderr)
+            return 1
+    # The existing same-machine browser flow remains available explicitly.
+    if not key and use_loopback:
         try:
             from .browser_login import browser_login
             key = browser_login(base)
             if key:
                 source = "browser"
-        except Exception as e:
-            print(_c(f"Browser sign-in unavailable ({e}).", "warning"), file=sys.stderr)
+        except Exception:
+            print(_c("Browser sign-in unavailable.", "warning"), file=sys.stderr)
         if not key:
-            print(_c("Browser sign-in didn't complete. Falling back to manual key entry.", "warning"))
+            print(_c("Browser sign-in didn't complete. Falling back to manual key entry (or run `weio login` for a short device code).", "warning"))
     # Fallback / explicit: paste a key from Settings → API & CLI (the dashboard path).
     if not key:
         print(_c(
@@ -554,9 +568,14 @@ def build_parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="command")
 
     sp = sub.add_parser("login", parents=[common],
-                        help="Sign in via browser, or --api-key for a dashboard key (re-auth replaces the saved key)")
+                        help="Display a device sign-in code, or use --loopback or an API key")
+    mode = sp.add_mutually_exclusive_group()
+    mode.add_argument("--device", action="store_true",
+                      help="Show a short code for https://app.weio.ai/cli/device and try to open that page")
+    mode.add_argument("--loopback", action="store_true",
+                      help="Open the browser and sign in on this computer using a local callback")
     sp.add_argument("--no-browser", action="store_true",
-                    help="Skip the browser flow and paste an API key manually")
+                    help="Paste an API key manually, or use with --device to print the code without opening a browser")
     sp.add_argument("--api-key", metavar="KEY", default=argparse.SUPPRESS,
                     help="Use a dashboard-issued key (Settings -> API keys at https://app.weio.ai/workspace/keys) instead of "
                          "browser sign-in — the recommended path for CI/headless/Teams use")

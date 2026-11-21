@@ -13,7 +13,7 @@ from weio_cli.client import WeioClient  # noqa: E402
 
 
 def test_version_is_current():
-    assert weio_cli.__version__ in ("1.0.2", "1.0.3")
+    assert weio_cli.__version__ in ("1.0.2", "1.0.3", "1.0.4")
 
 
 @pytest.mark.parametrize("api_base,expected", [

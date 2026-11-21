@@ -3,16 +3,16 @@ name: Publish weio-ai to PyPI
 on:
   push:
     tags:
-      - v1.0.3
+      - v1.0.4
 
 permissions:
   contents: read
 
 jobs:
   verify-and-build:
-    name: Verify 1.0.3 sources and sealed digests
+    name: Verify 1.0.4 sources and sealed digests
     runs-on: ubuntu-latest
-    if: github.repository == 'weioai/weio-cli' && github.ref == 'refs/tags/v1.0.3'
+    if: github.repository == 'weioai/weio-cli' && github.ref == 'refs/tags/v1.0.4'
     outputs:
       verified: ${{ steps.verify.outputs.ok }}
     steps:
@@ -29,36 +29,36 @@ jobs:
       - name: Install test dependencies
         run: python -m pip install --no-cache-dir pytest httpx prompt_toolkit
 
-      - name: Verify sealed 1.0.3 digests, README parity, and extracted sdist tests
+      - name: Verify sealed 1.0.4 digests, README parity, and extracted sdist tests
         id: verify
         run: |
           set -euo pipefail
-          RELEASE_DIR=release/weio-ai-103
-          actual_whl="$(sha256sum "${RELEASE_DIR}/weio_ai-1.0.3-py3-none-any.whl" | awk '{print $1}')"
-          actual_tar="$(sha256sum "${RELEASE_DIR}/weio_ai-1.0.3.tar.gz" | awk '{print $1}')"
-          test "${actual_whl}" = "f1886c1cc32f75d1b48f0cd83371070f21f5ef8d756d4092d0f989fcc89ecbd1"
-          test "${actual_tar}" = "f6966938dfc0789d05aef26be003a61ae6a761d8d0c0662583fecc170ae1a3ce"
+          RELEASE_DIR=release/weio-ai-104
+          actual_whl="$(sha256sum "${RELEASE_DIR}/weio_ai-1.0.4-py3-none-any.whl" | awk '{print $1}')"
+          actual_tar="$(sha256sum "${RELEASE_DIR}/weio_ai-1.0.4.tar.gz" | awk '{print $1}')"
+          test "${actual_whl}" = "043204994f415f7fa6e9f81fa284fa1bfb4f49a0892d23e630d7e587113d19de"
+          test "${actual_tar}" = "b30401fa8a66ca9ea058658c20e160053f87604d2078af82ed538ee4f7b8fa0d"
 
           tmpdir="$(mktemp -d)"
           trap 'rm -rf "$tmpdir"' EXIT
-          tar -xzf "${RELEASE_DIR}/weio_ai-1.0.3.tar.gz" -C "${tmpdir}"
-          python3 -c 'import hashlib, sys, zipfile; from pathlib import Path; wp, sd = Path(sys.argv[1]), Path(sys.argv[2]); exp = "fa4440ce21f5a4982877810ef9c908c37a0dfddabeb61c2daf9faaec946e17d4"; assert hashlib.sha256((sd / "README.md").read_bytes()).hexdigest() == exp; assert hashlib.sha256((sd / "PKG-INFO").read_text("utf-8").split("\n\n", 1)[1].encode("utf-8")).hexdigest() == exp; zf = zipfile.ZipFile(wp); assert not [n for n in zf.namelist() if n.endswith(".pyc") or "__pycache__" in n]; assert hashlib.sha256(zf.read("weio_ai-1.0.3.dist-info/METADATA").decode("utf-8").split("\n\n", 1)[1].encode("utf-8")).hexdigest() == exp; print("PARITY_OK", exp)' "${RELEASE_DIR}/weio_ai-1.0.3-py3-none-any.whl" "${tmpdir}/weio_ai-1.0.3"
-          (cd "${tmpdir}/weio_ai-1.0.3" && python -B -m pytest -q)
+          tar -xzf "${RELEASE_DIR}/weio_ai-1.0.4.tar.gz" -C "${tmpdir}"
+          python3 -c 'import hashlib, sys, zipfile; from pathlib import Path; wp, sd = Path(sys.argv[1]), Path(sys.argv[2]); exp = "8dbedddb81751991643e77be3c4e21808987584c2a1dd4c6ebcef815634e5a83"; assert hashlib.sha256((sd / "README.md").read_bytes()).hexdigest() == exp; assert hashlib.sha256((sd / "PKG-INFO").read_text("utf-8").split("\n\n", 1)[1].encode("utf-8")).hexdigest() == exp; zf = zipfile.ZipFile(wp); assert not [n for n in zf.namelist() if n.endswith(".pyc") or "__pycache__" in n]; assert hashlib.sha256(zf.read("weio_ai-1.0.4.dist-info/METADATA").decode("utf-8").split("\n\n", 1)[1].encode("utf-8")).hexdigest() == exp; print("PARITY_OK", exp)' "${RELEASE_DIR}/weio_ai-1.0.4-py3-none-any.whl" "${tmpdir}/weio_ai-1.0.4"
+          (cd "${tmpdir}/weio_ai-1.0.4" && PYTHONPATH=src python -B -m pytest -q)
 
           mkdir -p dist
-          cp "${RELEASE_DIR}/weio_ai-1.0.3-py3-none-any.whl" "${RELEASE_DIR}/weio_ai-1.0.3.tar.gz" dist/
+          cp "${RELEASE_DIR}/weio_ai-1.0.4-py3-none-any.whl" "${RELEASE_DIR}/weio_ai-1.0.4.tar.gz" dist/
           echo "ok=true" >> "$GITHUB_OUTPUT"
 
-      - name: Upload verified 1.0.3 distribution artifacts to workflow run
+      - name: Upload verified 1.0.4 distribution artifacts to workflow run
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: weio-ai-103-dist
+          name: weio-ai-104-dist
           path: dist/
           if-no-files-found: error
           retention-days: 7
 
   publish-pypi:
-    name: Publish 1.0.3 to PyPI via OIDC Trusted Publishing
+    name: Publish 1.0.4 to PyPI via OIDC Trusted Publishing
     needs: verify-and-build
     if: needs.verify-and-build.outputs.verified == 'true'
     runs-on: ubuntu-latest
@@ -69,17 +69,17 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - name: Download verified 1.0.3 distribution artifacts
+      - name: Download verified 1.0.4 distribution artifacts
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
-          name: weio-ai-103-dist
+          name: weio-ai-104-dist
           path: dist/
 
       - name: Final digest check before OIDC upload
         run: |
           set -euo pipefail
-          test "$(sha256sum dist/weio_ai-1.0.3-py3-none-any.whl | awk '{print $1}')" = "f1886c1cc32f75d1b48f0cd83371070f21f5ef8d756d4092d0f989fcc89ecbd1"
-          test "$(sha256sum dist/weio_ai-1.0.3.tar.gz | awk '{print $1}')" = "f6966938dfc0789d05aef26be003a61ae6a761d8d0c0662583fecc170ae1a3ce"
+          test "$(sha256sum dist/weio_ai-1.0.4-py3-none-any.whl | awk '{print $1}')" = "043204994f415f7fa6e9f81fa284fa1bfb4f49a0892d23e630d7e587113d19de"
+          test "$(sha256sum dist/weio_ai-1.0.4.tar.gz | awk '{print $1}')" = "b30401fa8a66ca9ea058658c20e160053f87604d2078af82ed538ee4f7b8fa0d"
 
       - name: Publish package distributions to PyPI
         uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
