@@ -63,7 +63,7 @@ def test_device_wire_contract_and_no_token_output(monkeypatch, clock, capsys):
     monkeypatch.setattr(device.webbrowser, "open", opened.append)
     assert device.device_login(device.API_BASE, open_browser=True) == VALUE
     assert options == [{"follow_redirects": False, "trust_env": False}]
-    assert requests[0] == ("https://app.weio.ai/api/public/cli/device/start", {"client_name": "weio-cli/1.0.4"})
+    assert requests[0] == ("https://app.weio.ai/api/public/cli/device/start", {"client_name": "weio-cli/1.0.5"})
     assert requests[1:] == [("https://app.weio.ai/api/public/cli/device/poll", {"device_code": CODE})] * 3
     assert clock == [5, 5, 10]
     assert opened == [LINK]

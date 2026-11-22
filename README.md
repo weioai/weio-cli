@@ -150,6 +150,10 @@ Using a different OpenAI-compatible endpoint (e.g. a gateway on your LAN)? Point
 Output is billed against your Weio account usage.
 
 
+## Release 1.0.5
+
+API key entry for `weio login --no-browser` is hidden in a terminal.
+
 ## Release 1.0.4
 
 The verified install and API-key workflow covers Linux with Python. The wheel

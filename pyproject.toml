@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "weio-ai"
-version = "1.0.4"
+version = "1.0.5"
 description = "Weio — an agentic coding assistant that routes inference through your Weio account."
 readme = "README.md"
 requires-python = ">=3.9"

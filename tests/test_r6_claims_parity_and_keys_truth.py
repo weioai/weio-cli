@@ -1,6 +1,7 @@
 # Unit tests for weio-cli 1.0.3 r6 claims-only README parity and /workspace/keys URL.
 from __future__ import annotations
 
+import io
 import json
 import re
 import sys
@@ -78,7 +79,10 @@ def test_r6_login_no_browser_prompt_displays_workspace_keys(monkeypatch, tmp_pat
 
     monkeypatch.setattr("httpx.get", fake_get)
     synth_key = "weio_" + "sk_r6_beta_fixture"
-    monkeypatch.setattr("builtins.input", lambda prompt="": synth_key)
+    terminal = io.StringIO()
+    monkeypatch.setattr(terminal, "isatty", lambda: True)
+    monkeypatch.setattr(cli.sys, "stdin", terminal)
+    monkeypatch.setattr(cli.getpass, "getpass", lambda _: synth_key)
 
     rc = cli.main(["login", "--no-browser"])
     out = capsys.readouterr().out

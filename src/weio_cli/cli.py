@@ -13,8 +13,11 @@ Commands:
 from __future__ import annotations
 
 import argparse
+import getpass
 import os
+import stat
 import sys
+import warnings
 from pathlib import Path
 
 from . import __version__, config, themes
@@ -69,6 +72,23 @@ def cmd_models(args) -> int:
     return 0
 
 
+def _read_login_key() -> str:
+    if sys.stdin is None:
+        raise EOFError
+    if sys.stdin.isatty():
+        with warnings.catch_warnings():
+            # getpass normally warns and falls back to visible input.
+            warnings.simplefilter("error", getpass.GetPassWarning)
+            return getpass.getpass("Weio API key (input hidden): ").strip()
+
+    # Keep existing piped and file-redirected key input. A non-terminal
+    # character device cannot establish that input would stay private.
+    mode = os.fstat(sys.stdin.fileno()).st_mode
+    if not (stat.S_ISFIFO(mode) or stat.S_ISREG(mode) or stat.S_ISSOCK(mode)):
+        raise EOFError
+    return sys.stdin.readline().strip()
+
+
 def cmd_login(args) -> int:
     cli_key = getattr(args, "key", None) or getattr(args, "api_key", None)
     cli_base = getattr(args, "base", None)
@@ -108,14 +128,15 @@ def cmd_login(args) -> int:
     # Fallback / explicit: paste a key from Settings → API & CLI (the dashboard path).
     if not key:
         print(_c(
-            "Paste an API key from Settings -> API keys at https://app.weio.ai/workspace/keys (closed beta waitlist at https://app.weio.ai/request-access).",
+            "Create an API key in Settings -> API keys at https://app.weio.ai/workspace/keys (closed beta waitlist at https://app.weio.ai/request-access).",
             "dim",
         ))
         try:
-            key = input("Weio API key (weio_sk_…): ").strip()
+            key = _read_login_key()
             source = "api_key"
-        except (EOFError, KeyboardInterrupt):
-            print()
+        except (EOFError, KeyboardInterrupt, OSError, ValueError, getpass.GetPassWarning):
+            print("Could not read an API key safely. Use a terminal or redirect the key to stdin.",
+                  file=sys.stderr)
             return 2
     if not key:
         print("No key provided.", file=sys.stderr)
@@ -575,7 +596,7 @@ def build_parser() -> argparse.ArgumentParser:
     mode.add_argument("--loopback", action="store_true",
                       help="Open the browser and sign in on this computer using a local callback")
     sp.add_argument("--no-browser", action="store_true",
-                    help="Paste an API key manually, or use with --device to print the code without opening a browser")
+                    help="Enter an API key with hidden input, or use with --device to print the code without opening a browser")
     sp.add_argument("--api-key", metavar="KEY", default=argparse.SUPPRESS,
                     help="Use a dashboard-issued key (Settings -> API keys at https://app.weio.ai/workspace/keys) instead of "
                          "browser sign-in — the recommended path for CI/headless/Teams use")

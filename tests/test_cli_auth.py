@@ -7,9 +7,13 @@ touched.
 """
 from __future__ import annotations
 
+import io
 import json
 import sys
+import warnings
 from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -174,6 +178,7 @@ def test_login_api_key_flag_persists_source_and_identity(monkeypatch, tmp_path, 
     _common_env(monkeypatch, tmp_path)
     _mock_http(monkeypatch, {"email": "dev@example.test", "tier": "pro", "org_name": None})
 
+    monkeypatch.setattr(cli, "_read_login_key", lambda: pytest.fail("explicit key must bypass input"))
     rc = cli.main(["login", "--api-key", "weio_sk_dashboard_issued"])
     out = capsys.readouterr().out
 
@@ -189,7 +194,10 @@ def test_login_api_key_flag_persists_source_and_identity(monkeypatch, tmp_path, 
 def test_login_no_browser_paste_source_is_api_key(monkeypatch, tmp_path, capsys):
     _common_env(monkeypatch, tmp_path)
     _mock_http(monkeypatch, {"email": "dev@example.test", "tier": "starter", "org_name": None})
-    monkeypatch.setattr("builtins.input", lambda prompt="": "weio_sk_pasted")
+    terminal = io.StringIO()
+    monkeypatch.setattr(terminal, "isatty", lambda: True)
+    monkeypatch.setattr(cli.sys, "stdin", terminal)
+    monkeypatch.setattr(cli.getpass, "getpass", lambda _: "weio_sk_pasted")
 
     rc = cli.main(["login", "--no-browser"])
     capsys.readouterr()
@@ -197,6 +205,44 @@ def test_login_no_browser_paste_source_is_api_key(monkeypatch, tmp_path, capsys)
     assert rc == 0
     data = json.loads((tmp_path / "config.json").read_text())
     assert data["key_source"] == "api_key"
+    assert data["api_key"] == "weio_sk_pasted"
+
+
+def test_login_no_browser_explicit_stdin_file_does_not_prompt(monkeypatch, tmp_path):
+    _common_env(monkeypatch, tmp_path)
+    _mock_http(monkeypatch, {"email": "dev@example.test", "tier": "starter"})
+    monkeypatch.setattr(cli.getpass, "getpass", lambda _: pytest.fail("redirected stdin must not prompt"))
+    keyfile = tmp_path / "synthetic-input"
+    keyfile.write_text("  weio_sk_redirected_fixture  \n")
+    with keyfile.open() as stream:
+        monkeypatch.setattr(cli.sys, "stdin", stream)
+        assert cli.main(["login", "--no-browser"]) == 0
+    saved = json.loads((tmp_path / "config.json").read_text())
+    assert saved["api_key"] == "weio_sk_redirected_fixture"
+
+
+@pytest.mark.parametrize("failure", ["getpass-warning", "terminal-eof", "no-terminal"])
+def test_login_no_browser_input_failure_preserves_existing_credential(monkeypatch, tmp_path, capsys, failure):
+    _common_env(monkeypatch, tmp_path)
+    config.save(key="weio_sk_incumbent_fixture", source="api_key")
+    saved = (tmp_path / "config.json").read_bytes()
+    monkeypatch.setattr("httpx.get", lambda *a, **k: pytest.fail("failed input must not contact the API"))
+    monkeypatch.setattr("builtins.input", lambda *a: pytest.fail("visible input must never run"))
+
+    def unavailable(_):
+        if failure == "getpass-warning":
+            warnings.warn("can not disable terminal echo", cli.getpass.GetPassWarning)
+            pytest.fail("getpass fallback must stop before reading")
+        raise EOFError
+
+    terminal = io.StringIO()
+    monkeypatch.setattr(terminal, "isatty", lambda: True)
+    monkeypatch.setattr(cli.sys, "stdin", None if failure == "no-terminal" else terminal)
+    monkeypatch.setattr(cli.getpass, "getpass", unavailable)
+    assert cli.main(["login", "--no-browser"]) == 2
+    output = capsys.readouterr()
+    assert "Could not read an API key safely" in output.err
+    assert (tmp_path / "config.json").read_bytes() == saved
 
 
 def test_login_browser_flow_tags_source_browser(monkeypatch, tmp_path, capsys):
